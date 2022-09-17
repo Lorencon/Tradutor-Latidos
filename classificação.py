@@ -13,5 +13,5 @@ sn.set()
 librosa.util.list_examples()
 
 #filename = librosa.util.example_audio_file()
-filename = librosa.ex('Áudio_de_Ramom_Landim(32)')
-mono_data, sample_rate = librosa.load(filename, duration = 13)
+filename = librosa.ex('trumpet')
+mono_data, sample_rate = librosa.load(filename, duration = 60)
