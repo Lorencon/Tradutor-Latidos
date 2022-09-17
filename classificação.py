@@ -12,6 +12,11 @@ sn.set()
 
 librosa.util.list_examples()
 
+<<<<<<< HEAD
 filename = librosa.util.example_audio_file()
 #filename = librosa.ex('vibeace')
+=======
+#filename = librosa.util.example_audio_file()
+filename = librosa.ex('trumpet')
+>>>>>>> 56a53e1c3daf27caaee891ea8dabe6a03205cb4f
 mono_data, sample_rate = librosa.load(filename, duration = 60)
