@@ -40,7 +40,7 @@ print('')
 data,sample_rate = librosa.load(filename,duration = 60, sr = 8000)
 print ('Taxa de amostragem: ', sample_rate)
 print('Amostras: ', data)
-print('Quantidade de amostras: ', len(data)) """
+print('Quantidade de amostras: ', len(data))
 
 #Reamostragem
 
@@ -67,3 +67,33 @@ print('kaiser_best',best)
 print('kaiser_fast',fast)
 print('scipy',scipy)
 print('polyphase',poly)
+
+#Separação de um som harmonico do percusivo
+filename = librosa.ex('nutcracker')
+y, sr = librosa.load(filename)
+y_harmonic, y_percussive = librosa.effects.hpss(y)
+
+print('Taxa de amostragem: ', sr)
+print('Quantidade de amostras: ', len(y))
+print('Duração: ', librosa.get_duration(y))
+print('Canais: ', y.shape)
+
+# Detecção de início e sintetização de click
+y, sr = librosa.load(librosa.ex('trumpet'))
+# https://librosa.org/doc/main/generated/librosa.onset.onset_strength.html
+onset_env = librosa.onset.onset_strength(y = y, sr = sr, max_size = 5)
+onset_env.shape, type(onset_env)
+
+onset_frames = librosa.onset.onset_detect(onset_envelope = onset_env, sr = sr)
+
+times = librosa.times_like(onset_env, sr = sr)
+times.shape, type(times)
+
+plt.plot(times, onset_env, label = 'Onset strength')
+plt.vlines(times[onset_frames], 0, onset_env.max(), color = 'r', linestyle = '--', label = 'Onsets')
+plt.legend()
+plt.show()
+
+onset_times = librosa.onset.onset_detect(onset_envelope = onset_env, sr = sr, units = 'time')
+y_clicks = librosa.clicks(times = onset_times, length = len(y), sr = sr)
+Audio(data = y + y_clicks, rate = sr)"""
