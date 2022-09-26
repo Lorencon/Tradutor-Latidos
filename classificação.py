@@ -8,12 +8,15 @@ from IPython.display import HTML, Audio
 import librosa
 import librosa.display as ld
 import seaborn as sn
+import tensorflow as tf
 sn.set()
 
 librosa.util.list_examples()
 
-"""filename = librosa.util.example_audio_file()
+# Formato OGG: https://pt.wikipedia.org/wiki/Ogg
+filename = librosa.util.example_audio_file()
 #filename = librosa.ex('trumpet')
+mono_data, sample_rate = librosa.load(filename, duration = 60)
 
 #Audio Mono - mais rapido, porem com menos qualidade
 mono_data, sample_rate = librosa.load(filename, duration = 60)
@@ -24,6 +27,7 @@ print('Taxa de amostragem: ',sample_rate)
 print('Duração do áudio: ', len(mono_data)/sample_rate)
 print('Duração do áudio: ', librosa.get_duration(mono_data))
 print('')
+
 
 #Audio(data = mono_data, rate = sample_rate) #Escuta do audio no Google colab
 
@@ -96,4 +100,4 @@ plt.show()
 
 onset_times = librosa.onset.onset_detect(onset_envelope = onset_env, sr = sr, units = 'time')
 y_clicks = librosa.clicks(times = onset_times, length = len(y), sr = sr)
-Audio(data = y + y_clicks, rate = sr)"""
+Audio(data = y + y_clicks, rate = sr,autoplay=True)
