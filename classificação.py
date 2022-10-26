@@ -35,11 +35,10 @@ O nome do arquivo de áudio.
     0 = Choro
     1 = Abrir_a_porta
     2 = Chegada_do_dono
-    4 = Comer
-    5 = Ir_para_o_quarto
-    6 = Passear
-    7 = Pegar_no_colo
-    8 = Subir_cama_sofá
+    3 = Comer
+    4 = Ir_para_o_quarto
+    5 = Subir_cama_sofa
+    6 = Pegar_no_colo
 
     * [occurrenceID] = um identificador numérico para distinguir diferentes ocorrências do som dentro da gravação original;
     * [sliceID] = um identificador numérico para distinguir diferentes fatias tiradas da mesma ocorrência;
@@ -82,23 +81,23 @@ for root, dirs, files in tqdm(os.walk('C:/Users/Ramom Landim/Desktop/TG/Tradutor
     except ValueError:
       continue
 
-sound_list = [ 'Choro','Abrir_a_porta', 'Chegada_do_dono', 'Comer', 'Ir_para_o_quarto', 'Passear','Pegar_no_colo', 'Subir_cama_sofá']
+sound_list = [ 'Choro','Abrir_a_porta', 'Chegada_do_dono', 'Comer', 'Ir_para_o_quarto','Subir_cama_sofa', 'Pegar_no_colo']
 sound_dict = {em[0]:em[1] for em in enumerate(sound_list)}
-#print(sound_dict)
+print(sound_dict)
 
 df = pd.DataFrame([fsID, classID, occurID, sliceID, full_path]).T
-#print(df)
+print(df)
 
 df.columns = ['fsID', 'classID', 'occurID', 'sliceID', 'path']
-#print(df)
+print(df)
 
 df['classID'] = df['classID'].map(sound_dict)
 df['path'] = df['path'].apply(lambda x: x[0] + '/' + x[1])
-#print(df)
+print(df)
 
-#print(df.describe())
-#print(df['classID'].value_counts())
+print(df.describe())
+print(df['classID'].value_counts())
 
-plt.figure(figsize=(18,7))
-sns.countplot(df['classID'])
-plt.show()
+#plt.figure(figsize=(18,7))
+#sns.countplot(df['classID'])
+#plt.show()
