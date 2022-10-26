@@ -50,7 +50,7 @@ O nome do arquivo de áudio.
 * class: descrição da classe
 """
 metadata = pd.read_csv('C:/Users/Ramom Landim/Desktop/TG/Tradutor-Latidos/metadata/SoundsPipinho.csv')
-metadata
+print(metadata)
 
 fsID = []
 classID = []
@@ -58,7 +58,7 @@ occurID = []
 sliceID = []
 full_path = []
 
-for root, dirs, files in tqdm(os.walk('C:/Users/Ramom Landim/Desktop/TG/Tradutor-Latidos/audios')):
+for root, dirs, files in tqdm(os.walk('C:/Users/Ramom Landim/Desktop/TG/Tradutor-Latidos/audios/')):
   #print(root)
   #print(dirs)
   #print(files)
@@ -83,21 +83,92 @@ for root, dirs, files in tqdm(os.walk('C:/Users/Ramom Landim/Desktop/TG/Tradutor
 
 sound_list = [ 'Choro','Abrir_a_porta', 'Chegada_do_dono', 'Comer', 'Ir_para_o_quarto','Subir_cama_sofa', 'Pegar_no_colo']
 sound_dict = {em[0]:em[1] for em in enumerate(sound_list)}
-print(sound_dict)
+#print(sound_dict)
 
 df = pd.DataFrame([fsID, classID, occurID, sliceID, full_path]).T
-print(df)
+#print(df)
 
 df.columns = ['fsID', 'classID', 'occurID', 'sliceID', 'path']
-print(df)
+#print(df)
 
 df['classID'] = df['classID'].map(sound_dict)
 df['path'] = df['path'].apply(lambda x: x[0] + '/' + x[1])
-print(df)
+#print(df)
 
-print(df.describe())
-print(df['classID'].value_counts())
+#print(df.describe())
+#print(df['classID'].value_counts())
 
 #plt.figure(figsize=(18,7))
-#sns.countplot(df['classID'])
+#sns.countplot(x=df['classID'])
 #plt.show()
+
+#print(df.shape)
+
+n_files = df.shape[0]
+rnd = np.random.randint(0,n_files)
+fname = df['path'][rnd]
+#print(fname)
+
+data,sample_rate = librosa.load(fname,sr=None) #22050 Hz
+print('Canais: ',len(data.shape))
+print('Número total de amostras: ', data.shape[0])
+print('Arquivos: ', fname)
+print('Taxa de amostragem: ',sample_rate)
+print('Duração: ',len(data)/sample_rate)
+
+info = df.iloc[rnd].values
+#print(info)
+title_txt = 'Som: ' + info [1]
+
+#plt.title(title_txt.upper(),size = 16)
+#librosa.display.waveplot(data,sr=sample_rate)
+#plt.show()
+#Audio(data=data,rate=sample_rate) apenas no Jupyter
+
+
+#Apenas no Jupyter
+random_sample = df.groupby('classID').sample(1)
+audio_samples, labels = random_sample['path'].tolist(),random_sample['classID'].tolist()
+rows = 5
+cols = 2
+
+"""
+fig, axs = plt.subplot(rows,cols,figsize=(15,15))
+index = 0
+for col in range (cols):
+  for row in range(rows):
+    data,sample_rate = librosa.load(audio_samples[index],sr=None)
+    librosa.display.waveplot(data,sample_rate,ax=axs[row][col])
+    axs[row][col].set_title('{}'.format(labels[index]))
+    index+=1
+    plt.show()
+fig.tight_layout()
+
+#Espectrogramas de STFT
+fig, axs = plt.subplots(rows, cols, figsize=(20,20))
+index = 0
+for col in range(cols):
+  for row in range(rows):
+    data, sample_rate = librosa.load(audio_samples[index], sr = None)
+    stft = librosa.stft(y = data)
+    stft_db = librosa.amplitude_to_db(np.abs(stft))
+    img = librosa.display.specshow(stft_db, x_axis = 'time', y_axis = 'log', ax = axs[row][col], cmap = 'Spectral')
+    axs[row][col].set_title('{}'.format(labels[index]))
+    fig.colorbar(img, ax = axs[row][col], format='%+2.f dB')
+    index += 1
+fig.tight_layout()
+"""
+#Espectrogramas de MFCCs
+fig, axs = plt.subplots(rows, cols, figsize=(20,20))
+index = 0
+for col in range(cols):
+    for row in range(rows):
+        data, sample_rate = librosa.load(audio_samples[index], sr = None)
+        mfccs = librosa.feature.mfcc(y = data, sr=sample_rate, n_mfcc=40)
+        mfccs_db = librosa.amplitude_to_db(np.abs(mfccs))
+        img = librosa.display.specshow(mfccs_db, x_axis="time", y_axis='log', ax=axs[row][col], cmap = 'Spectral')
+        axs[row][col].set_title('{}'.format(labels[index]))
+        fig.colorbar(img, ax=axs[row][col], format='%+2.f dB')
+        index += 1
+fig.tight_layout()
+
