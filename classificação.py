@@ -49,8 +49,8 @@ O nome do arquivo de áudio.
 * fold: o número da pasta (1-10) ao qual este arquivo foi alocado.
 * class: descrição da classe
 """
-metadata = pd.read_csv('C:/Users/Ramom Landim/Desktop/TG/Tradutor-Latidos/metadata/SoundsPipinho.csv')
-print(metadata)
+metadata = pd.read_csv('metadata/SoundsPipinho.csv')
+#print(metadata)
 
 fsID = []
 classID = []
@@ -58,7 +58,7 @@ occurID = []
 sliceID = []
 full_path = []
 
-for root, dirs, files in tqdm(os.walk('C:/Users/Ramom Landim/Desktop/TG/Tradutor-Latidos/audios/')):
+for root, dirs, files in tqdm(os.walk('audios/')):
   #print(root)
   #print(dirs)
   #print(files)
@@ -157,18 +157,191 @@ for col in range(cols):
     fig.colorbar(img, ax = axs[row][col], format='%+2.f dB')
     index += 1
 fig.tight_layout()
-"""
+
 #Espectrogramas de MFCCs
+"""
 fig, axs = plt.subplots(rows, cols, figsize=(20,20))
 index = 0
 for col in range(cols):
     for row in range(rows):
-        data, sample_rate = librosa.load(audio_samples[index], sr = None)
-        mfccs = librosa.feature.mfcc(y = data, sr=sample_rate, n_mfcc=40)
-        mfccs_db = librosa.amplitude_to_db(np.abs(mfccs))
-        img = librosa.display.specshow(mfccs_db, x_axis="time", y_axis='log', ax=axs[row][col], cmap = 'Spectral')
-        axs[row][col].set_title('{}'.format(labels[index]))
-        fig.colorbar(img, ax=axs[row][col], format='%+2.f dB')
-        index += 1
+        if(index!=7):
+          data, sample_rate = librosa.load(audio_samples[index], sr = None)
+          mfccs = librosa.feature.mfcc(y = data, sr=sample_rate, n_mfcc=40)
+          mfccs_db = librosa.amplitude_to_db(np.abs(mfccs))
+          img = librosa.display.specshow(mfccs_db, x_axis="time", y_axis='log', ax=axs[row][col], cmap = 'Spectral')
+          axs[row][col].set_title('{}'.format(labels[index]))
+          fig.colorbar(img, ax=axs[row][col], format='%+2.f dB')
+          index += 1
 fig.tight_layout()
+plt.show()
 
+
+def features_extractor(file_name):
+  data, sample_rate = librosa.load(file_name, sr = None, res_type = 'kaiser_fast')
+  mfccs_features = librosa.feature.mfcc(y = data, sr = sample_rate, n_mfcc=40)
+  mfcss_features_scaled = np.mean(mfccs_features.T, axis = 0)
+  return mfcss_features_scaled
+
+extracted_features = []
+for path in tqdm(df['path'].values):
+  #print(path)
+  data = features_extractor(path)
+  extracted_features.append([data])
+
+extracted_features_df = pd.DataFrame(extracted_features, columns = ['feature'])
+X = np.array(extracted_features_df['feature'].tolist())
+y = np.array(df['classID'].tolist())
+
+labelencoder = LabelEncoder()
+y = to_categorical(labelencoder.fit_transform(y))
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 1)
+X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size = 0.5, random_state=1)
+
+X_train = X_train[:,:,np.newaxis]
+X_test = X_test[:,:,np.newaxis]
+X_val = X_val[:,:,np.newaxis]
+
+model = Sequential()
+
+model.add(Conv1D(64, kernel_size=(10), activation='relu', input_shape=(X_train.shape[1], 1)))
+model.add(Dropout(0.4))
+model.add(MaxPooling1D(pool_size=(4)))
+
+model.add(Conv1D(128, 10, padding='same',))
+model.add(Activation('relu'))
+model.add(Dropout(0.4))
+model.add(MaxPooling1D(pool_size=(4)))
+
+model.add(Flatten())
+
+model.add(Dense(units = 64))
+model.add(Dropout(0.4))
+model.add(Dense(units = 7))
+model.add(Activation('softmax'))
+
+model.compile(loss='categorical_crossentropy', metrics = ['accuracy'], optimizer = 'adam')
+#model.summary()
+
+#Treinamento da base
+num_epochs = 80
+num_batch_size = 32
+checkpointer = ModelCheckpoint(filepath = 'saved_models/ambient_sound_classification.hdf5',
+                               verbose = 1, save_best_only = True)
+start = datetime.now()
+history = model.fit(X_train, y_train, batch_size = num_batch_size, epochs = num_epochs,
+                    validation_data = (X_val, y_val), callbacks = [checkpointer], verbose = 1)
+duration = datetime.now() - start
+print('Duração do treinamento: ', duration)
+print('')
+
+#Avaliação do modelo
+#Treinamento
+score = model.evaluate(X_train, y_train)
+print(score)
+print('')
+
+#Validação
+score = model.evaluate(X_val, y_val)
+print(score)
+print('')
+
+#Testes
+score = model.evaluate(X_test, y_test)
+print(score)
+print('')
+
+#Grafico de validação
+plt.plot(history.history['accuracy'])
+plt.plot(history.history['val_accuracy'])
+plt.title('Accuracy')
+plt.ylabel('accuracy')
+plt.xlabel('epoch')
+plt.legend(['train', 'validation']);
+plt.show()
+
+plt.plot(history.history['loss'])
+plt.plot(history.history['val_loss'])
+plt.title('Loss')
+plt.ylabel('loss')
+plt.xlabel('epoch')
+plt.legend(['train', 'validation']);
+plt.show()
+
+predictions = model.predict(X_test)
+predictions = predictions.argmax(axis = 1)
+predictions = predictions.astype(int).flatten()
+predictions = (labelencoder.inverse_transform((predictions)))
+predictions = pd.DataFrame({'Classes previstas': predictions})
+print(predictions)
+print('')
+
+actual = y_test.argmax(axis = 1)
+actual = actual.astype(int).flatten()
+actual = labelencoder.inverse_transform(actual)
+actual = pd.DataFrame({'Classes reais': actual})
+print(actual)
+print('')
+
+final_df = actual.join(predictions)
+print(final_df)
+print('')
+
+cm = confusion_matrix(actual, predictions)
+#cm = pd.DataFrame(cm, index = [i for i in labelencoder.classes_], columns = [i for i in labelencoder.classes_])
+#print(cm)
+
+plt.figure(figsize = (12,10))
+ax = sns.heatmap(cm, linecolor = 'white', cmap = 'Greys_r', linewidth=1, annot = True, fmt = '')
+bottom, top = ax.get_ylim()
+ax.set_ylim(bottom + 0.5, top - 0.5)
+plt.title('Matriz de confusão', size = 20)
+plt.xlabel('Classes previstas', size = 14)
+plt.ylabel('Classes reais', size = 14)
+plt.show()
+
+print(classification_report(actual, predictions))
+
+def get_info(data, sample_rate):
+  print('Canais: ', len(data.shape))
+  print('Número total de amostras: ', data.shape[0])
+  print('Taxa de amostragem: ', sample_rate)
+  print('Duração: ', len(data) / sample_rate)
+
+def predict_sound(arquivo_audio, info = False, plot_waveform = False, plot_spectrogram = False):
+  audio, sample_rate = librosa.load(arquivo_audio, sr = None, res_type = 'kaiser_fast')
+  mfccs_features = librosa.feature.mfcc(y = audio, sr = sample_rate, n_mfcc=40)
+  mfccs_scaled_features = np.mean(mfccs_features.T, axis = 0)
+  mfccs_scaled_features = mfccs_scaled_features.reshape(1,-1)
+  mfccs_scaled_features = mfccs_scaled_features[:,:,np.newaxis]
+
+  prediction = model.predict(mfccs_scaled_features)
+  prediction = prediction.argmax(axis=1)
+  prediction = prediction.astype(int).flatten()
+  prediction = labelencoder.inverse_transform((prediction))
+
+  print('Classificação/resultado: ', prediction)
+
+  if info:
+    get_info(audio, sample_rate)
+
+  if plot_waveform:
+    plt.figure(figsize=(14,5))
+    plt.title('Tipo de som: ' + str(prediction[0].upper()), size = 16)
+    plt.xlabel('Tempo')
+    plt.ylabel('Amplitude')
+    ld.waveplot(audio, sr=sample_rate)
+    plt.show()
+
+  if plot_spectrogram:
+    plt.figure(figsize=(14,5))
+    mfccs_db = librosa.amplitude_to_db(np.abs(mfccs))
+    plt.title('Tipo de som: ' + str(prediction[0].upper()), size = 16)
+    ld.specshow(mfccs_db, x_axis='time', y_axis='log', cmap='Spectral')
+    plt.colorbar(format='%+2.f dB')
+    plt.show()
+
+audio, sample_rate = librosa.load('audios/Folder1/654159-2-0-1.wav', sr = None, res_type = 'kaiser_fast')
+predict_sound('audios/Folder1/654159-2-0-1.wav', info = True, plot_waveform=True, plot_spectrogram=True)
+
+  
