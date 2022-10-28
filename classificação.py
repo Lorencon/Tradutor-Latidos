@@ -10,9 +10,7 @@ import librosa
 import librosa.display as ld
 from IPython.display import Audio
 from tqdm import tqdm
-import tensorflow
-#print('Versão Tensorflow: ', tensorflow.__version__)
-#print('Versão librosa: ', librosa.__version__)
+import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.utils import to_categorical
@@ -120,62 +118,6 @@ info = df.iloc[rnd].values
 #print(info)
 title_txt = 'Som: ' + info [1]
 
-#plt.title(title_txt.upper(),size = 16)
-#librosa.display.waveplot(data,sr=sample_rate)
-#plt.show()
-#Audio(data=data,rate=sample_rate) apenas no Jupyter
-
-
-#Apenas no Jupyter
-random_sample = df.groupby('classID').sample(1)
-audio_samples, labels = random_sample['path'].tolist(),random_sample['classID'].tolist()
-rows = 5
-cols = 2
-
-"""
-fig, axs = plt.subplot(rows,cols,figsize=(15,15))
-index = 0
-for col in range (cols):
-  for row in range(rows):
-    data,sample_rate = librosa.load(audio_samples[index],sr=None)
-    librosa.display.waveplot(data,sample_rate,ax=axs[row][col])
-    axs[row][col].set_title('{}'.format(labels[index]))
-    index+=1
-    plt.show()
-fig.tight_layout()
-
-#Espectrogramas de STFT
-fig, axs = plt.subplots(rows, cols, figsize=(20,20))
-index = 0
-for col in range(cols):
-  for row in range(rows):
-    data, sample_rate = librosa.load(audio_samples[index], sr = None)
-    stft = librosa.stft(y = data)
-    stft_db = librosa.amplitude_to_db(np.abs(stft))
-    img = librosa.display.specshow(stft_db, x_axis = 'time', y_axis = 'log', ax = axs[row][col], cmap = 'Spectral')
-    axs[row][col].set_title('{}'.format(labels[index]))
-    fig.colorbar(img, ax = axs[row][col], format='%+2.f dB')
-    index += 1
-fig.tight_layout()
-
-#Espectrogramas de MFCCs
-"""
-fig, axs = plt.subplots(rows, cols, figsize=(20,20))
-index = 0
-for col in range(cols):
-    for row in range(rows):
-        if(index!=7):
-          data, sample_rate = librosa.load(audio_samples[index], sr = None)
-          mfccs = librosa.feature.mfcc(y = data, sr=sample_rate, n_mfcc=40)
-          mfccs_db = librosa.amplitude_to_db(np.abs(mfccs))
-          img = librosa.display.specshow(mfccs_db, x_axis="time", y_axis='log', ax=axs[row][col], cmap = 'Spectral')
-          axs[row][col].set_title('{}'.format(labels[index]))
-          fig.colorbar(img, ax=axs[row][col], format='%+2.f dB')
-          index += 1
-fig.tight_layout()
-plt.show()
-
-
 def features_extractor(file_name):
   data, sample_rate = librosa.load(file_name, sr = None, res_type = 'kaiser_fast')
   mfccs_features = librosa.feature.mfcc(y = data, sr = sample_rate, n_mfcc=40)
@@ -225,8 +167,9 @@ model.compile(loss='categorical_crossentropy', metrics = ['accuracy'], optimizer
 
 #Treinamento da base
 num_epochs = 80
-num_batch_size = 32
-checkpointer = ModelCheckpoint(filepath = 'saved_models/ambient_sound_classification.hdf5',
+num_batch_size = 10
+
+checkpointer = ModelCheckpoint(filepath = 'saved_models/barking_classification.hdf5',
                                verbose = 1, save_best_only = True)
 start = datetime.now()
 history = model.fit(X_train, y_train, batch_size = num_batch_size, epochs = num_epochs,
@@ -237,16 +180,19 @@ print('')
 
 #Avaliação do modelo
 #Treinamento
+print('Treinamento')
 score = model.evaluate(X_train, y_train)
 print(score)
 print('')
 
 #Validação
+print('Validação')
 score = model.evaluate(X_val, y_val)
 print(score)
 print('')
 
 #Testes
+print('Teste')
 score = model.evaluate(X_test, y_test)
 print(score)
 print('')
@@ -268,27 +214,28 @@ plt.xlabel('epoch')
 plt.legend(['train', 'validation']);
 plt.show()
 
+
 predictions = model.predict(X_test)
 predictions = predictions.argmax(axis = 1)
 predictions = predictions.astype(int).flatten()
 predictions = (labelencoder.inverse_transform((predictions)))
 predictions = pd.DataFrame({'Classes previstas': predictions})
-print(predictions)
-print('')
+#print(predictions)
+#print('')
 
 actual = y_test.argmax(axis = 1)
 actual = actual.astype(int).flatten()
 actual = labelencoder.inverse_transform(actual)
 actual = pd.DataFrame({'Classes reais': actual})
-print(actual)
-print('')
+#print(actual)
+#print('')
 
 final_df = actual.join(predictions)
-print(final_df)
-print('')
+#print(final_df)
+#print('')
 
 cm = confusion_matrix(actual, predictions)
-#cm = pd.DataFrame(cm, index = [i for i in labelencoder.classes_], columns = [i for i in labelencoder.classes_])
+cm = pd.DataFrame(cm, index = [i for i in labelencoder.classes_], columns = [i for i in labelencoder.classes_])
 #print(cm)
 
 plt.figure(figsize = (12,10))
@@ -324,7 +271,8 @@ def predict_sound(arquivo_audio, info = False, plot_waveform = False, plot_spect
 
   if info:
     get_info(audio, sample_rate)
-
+    
+  """
   if plot_waveform:
     plt.figure(figsize=(14,5))
     plt.title('Tipo de som: ' + str(prediction[0].upper()), size = 16)
@@ -333,15 +281,17 @@ def predict_sound(arquivo_audio, info = False, plot_waveform = False, plot_spect
     ld.waveplot(audio, sr=sample_rate)
     plt.show()
 
+  #Espectrogramas de MFCCs
   if plot_spectrogram:
     plt.figure(figsize=(14,5))
-    mfccs_db = librosa.amplitude_to_db(np.abs(mfccs))
+    mfccs_db = librosa.amplitude_to_db(np.abs(mfccs_features))
     plt.title('Tipo de som: ' + str(prediction[0].upper()), size = 16)
     ld.specshow(mfccs_db, x_axis='time', y_axis='log', cmap='Spectral')
     plt.colorbar(format='%+2.f dB')
     plt.show()
+  """
 
-audio, sample_rate = librosa.load('audios/Folder1/654159-2-0-1.wav', sr = None, res_type = 'kaiser_fast')
-predict_sound('audios/Folder1/654159-2-0-1.wav', info = True, plot_waveform=True, plot_spectrogram=True)
+audio, sample_rate = librosa.load(r'audios\Folder2\655170-5-0-3.wav', sr = None, res_type = 'kaiser_fast')
+predict_sound(r'audios\Folder2\655170-5-0-3.wav', info = True, plot_waveform=True, plot_spectrogram=True)
 
   
