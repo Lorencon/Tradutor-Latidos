@@ -5,17 +5,19 @@ import warnings
 warnings.filterwarnings('ignore')
 import matplotlib.pyplot as plt
 import numpy as np
+import copy as cp
 import pandas as pd
 import librosa
 import librosa.display as ld
 from IPython.display import Audio
 from tqdm import tqdm
 import tensorflow as tf
+from tensorflow import keras
 from sklearn.preprocessing import LabelEncoder
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.utils import to_categorical
-from tensorflow.keras.callbacks import ModelCheckpoint
-from tensorflow.keras.layers import Activation, Conv1D, Dense, Dropout, Flatten, MaxPooling1D
+from keras.models import Sequential
+from keras.utils import to_categorical
+from keras.callbacks import ModelCheckpoint
+from keras.layers import Activation, Conv1D, Dense, Dropout, Flatten, MaxPooling1D
 from sklearn.metrics import confusion_matrix, classification_report
 from sklearn.model_selection import train_test_split
 import seaborn as sns
@@ -134,6 +136,89 @@ extracted_features_df = pd.DataFrame(extracted_features, columns = ['feature'])
 X = np.array(extracted_features_df['feature'].tolist())
 y = np.array(df['classID'].tolist())
 
+extracted_features_df = pd.DataFrame(extracted_features, columns = ['feature'])
+feature = np.array(extracted_features_df['feature'].tolist())
+classID = np.array(df['classID'].tolist())
+
+def train_test(feature,classID,tax):
+  feature_inicio=[]
+  classID_inicio=[]
+  for i in range(len(feature)):
+    linha=[]
+    for j in range(len(feature[i])):
+      linha.append(feature[i][j])
+    feature_inicio.append(linha)
+    classID_inicio.append(classID[i])
+  #print(feature_inicio)
+  #print(classID_inicio)
+  feature_train=[]
+  classID_train=[]
+  feature_test=[]
+  classID_test=[]
+  feature_val=[]
+  classID_val=[]
+  qtyClass=[0,0,0,0,0,0,0]
+  for i in range(len(classID)):
+    qtyClass[sound_list.index(classID[i])]+=1
+  #print(qtyClass)
+  for i in range(len(qtyClass)):
+    n=int(qtyClass[i]*tax)
+    if n<2:
+      n=2
+    k=0
+    #Alimentando Teste
+    for j in range(len(classID)):
+      if classID_inicio[j]==sound_list[i]:
+        feature_test.append(feature_inicio[j])
+        feature_inicio.remove(feature_inicio[j])
+        classID_test.append(classID_inicio[j])
+        classID_inicio.remove(classID_inicio[j])
+        k+=1
+        if k==int(n/2):
+          break
+    k=0
+    #Alimentando Validação
+    for j in range(len(classID)):
+      if classID_inicio[j]==sound_list[i]:
+        feature_val.append(feature_inicio[j])
+        feature_inicio.remove(feature_inicio[j])
+        classID_val.append(classID_inicio[j])
+        classID_inicio.remove(classID_inicio[j])
+        k+=1
+        if k==int(n/2):
+          break
+    k=0
+  for j in range (len(classID_inicio)):
+    feature_train.append(feature_inicio[j])
+    classID_train.append(classID_inicio[j])
+  
+  feature_train=np.array(feature_train)
+  classID_train=np.array(classID_train)
+  feature_test=np.array(feature_test)
+  classID_test=np.array(classID_test)
+  feature_val=np.array(feature_val)
+  classID_val=np.array(classID_val)
+
+  labelencoder = LabelEncoder()
+  classID_train = to_categorical(labelencoder.fit_transform(classID_train))
+  classID_test = to_categorical(labelencoder.fit_transform(classID_test))
+  classID_val = to_categorical(labelencoder.fit_transform(classID_val))
+ 
+  return  feature_train,classID_train,feature_test,classID_test,feature_val,classID_val,labelencoder
+
+"""
+X_train, y_train, X_test, y_test, X_val, y_val,labelencoder = train_test(feature,classID,0.2)
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+X_test = np.array(X_test)
+y_test = np.array(y_test)
+X_val = np.array(X_val)
+
+X_train = X_train[:,:,np.newaxis]
+X_test = X_test[:,:,np.newaxis]
+X_val = X_val[:,:,np.newaxis]
+"""
+
 labelencoder = LabelEncoder()
 y = to_categorical(labelencoder.fit_transform(y))
 
@@ -144,110 +229,117 @@ X_train = X_train[:,:,np.newaxis]
 X_test = X_test[:,:,np.newaxis]
 X_val = X_val[:,:,np.newaxis]
 
-model = Sequential()
+def get_model():
+  model = Sequential()
 
-model.add(Conv1D(64, kernel_size=(10), activation='relu', input_shape=(X_train.shape[1], 1)))
-model.add(Dropout(0.4))
-model.add(MaxPooling1D(pool_size=(4)))
+  model.add(Conv1D(64, kernel_size=(10), activation='relu', input_shape=(X_train.shape[1], 1)))
+  model.add(Dropout(0.4))
+  model.add(MaxPooling1D(pool_size=(4)))
 
-model.add(Conv1D(128, 10, padding='same',))
-model.add(Activation('relu'))
-model.add(Dropout(0.4))
-model.add(MaxPooling1D(pool_size=(4)))
+  model.add(Conv1D(128, 10, padding='same',))
+  model.add(Activation('relu'))
+  model.add(Dropout(0.4))
+  model.add(MaxPooling1D(pool_size=(4)))
 
-model.add(Flatten())
+  model.add(Flatten())
 
-model.add(Dense(units = 64))
-model.add(Dropout(0.4))
-model.add(Dense(units = 7))
-model.add(Activation('softmax'))
+  model.add(Dense(units = 64))
+  model.add(Dropout(0.4))
+  model.add(Dense(units = 7))
+  model.add(Activation('softmax'))
 
-model.compile(loss='categorical_crossentropy', metrics = ['accuracy'], optimizer = 'adam')
-#model.summary()
+  model.compile(loss='categorical_crossentropy', metrics = ['accuracy'], optimizer = 'adam')
+  #model.summary()
+  return model
 
-#Treinamento da base
-num_epochs = 80
-num_batch_size = 10
+def treinamento(num_epochs,num_batch_size):
+  model = get_model()
+  model.load_weights("saved_models/barking_classification.h5")
+  #Treinamento da base
+  num_epochs = num_epochs
+  num_batch_size = num_batch_size
 
-checkpointer = ModelCheckpoint(filepath = 'saved_models/barking_classification.hdf5',
-                               verbose = 1, save_best_only = True)
-start = datetime.now()
-history = model.fit(X_train, y_train, batch_size = num_batch_size, epochs = num_epochs,
-                    validation_data = (X_val, y_val), callbacks = [checkpointer], verbose = 1)
-duration = datetime.now() - start
-print('Duração do treinamento: ', duration)
-print('')
+  checkpointer = ModelCheckpoint(filepath = 'saved_models/barking_classification_checkpoint.hdf5',
+                                verbose = 1, save_best_only = True)
+  start = datetime.now()
+  history = model.fit(X_train, y_train, batch_size = num_batch_size, epochs = num_epochs,
+                      validation_data = (X_val, y_val), callbacks = [checkpointer], verbose = 1)
+  duration = datetime.now() - start
+  print('Duração do treinamento: ', duration)
+  print('')
 
-#Avaliação do modelo
-#Treinamento
-print('Treinamento')
-score = model.evaluate(X_train, y_train)
-print(score)
-print('')
+  model.save_weights("saved_models/barking_classification.h5")
 
-#Validação
-print('Validação')
-score = model.evaluate(X_val, y_val)
-print(score)
-print('')
+  #Avaliação do modelo
+  #Treinamento
+  print('Treinamento')
+  score = model.evaluate(X_train, y_train)
+  print(score)
+  print('')
 
-#Testes
-print('Teste')
-score = model.evaluate(X_test, y_test)
-print(score)
-print('')
+  #Validação
+  print('Validação')
+  score = model.evaluate(X_val, y_val)
+  print(score)
+  print('')
 
-#Grafico de validação
-plt.plot(history.history['accuracy'])
-plt.plot(history.history['val_accuracy'])
-plt.title('Accuracy')
-plt.ylabel('accuracy')
-plt.xlabel('epoch')
-plt.legend(['train', 'validation']);
-plt.show()
+  #Testes
+  print('Teste')
+  score = model.evaluate(X_test, y_test)
+  print(score)
+  print('')
 
-plt.plot(history.history['loss'])
-plt.plot(history.history['val_loss'])
-plt.title('Loss')
-plt.ylabel('loss')
-plt.xlabel('epoch')
-plt.legend(['train', 'validation']);
-plt.show()
+  #Grafico de validação
+  plt.plot(history.history['accuracy'])
+  plt.plot(history.history['val_accuracy'])
+  plt.title('Accuracy')
+  plt.ylabel('accuracy')
+  plt.xlabel('epoch')
+  plt.legend(['train', 'validation']);
+  plt.show()
+
+  plt.plot(history.history['loss'])
+  plt.plot(history.history['val_loss'])
+  plt.title('Loss')
+  plt.ylabel('loss')
+  plt.xlabel('epoch')
+  plt.legend(['train', 'validation']);
+  plt.show()
 
 
-predictions = model.predict(X_test)
-predictions = predictions.argmax(axis = 1)
-predictions = predictions.astype(int).flatten()
-predictions = (labelencoder.inverse_transform((predictions)))
-predictions = pd.DataFrame({'Classes previstas': predictions})
-#print(predictions)
-#print('')
+  predictions = model.predict(X_test)
+  predictions = predictions.argmax(axis = 1)
+  predictions = predictions.astype(int).flatten()
+  predictions = (labelencoder.inverse_transform((predictions)))
+  predictions = pd.DataFrame({'Classes previstas': predictions})
+  #print(predictions)
+  #print('')
 
-actual = y_test.argmax(axis = 1)
-actual = actual.astype(int).flatten()
-actual = labelencoder.inverse_transform(actual)
-actual = pd.DataFrame({'Classes reais': actual})
-#print(actual)
-#print('')
+  actual = y_test.argmax(axis = 1)
+  actual = actual.astype(int).flatten()
+  actual = labelencoder.inverse_transform(actual)
+  actual = pd.DataFrame({'Classes reais': actual})
+  #print(actual)
+  #print('')
 
-final_df = actual.join(predictions)
-#print(final_df)
-#print('')
+  final_df = actual.join(predictions)
+  #print(final_df)
+  #print('')
 
-cm = confusion_matrix(actual, predictions)
-cm = pd.DataFrame(cm, index = [i for i in labelencoder.classes_], columns = [i for i in labelencoder.classes_])
-#print(cm)
+  cm = confusion_matrix(actual, predictions)
+  cm = pd.DataFrame(cm, index = [i for i in labelencoder.classes_], columns = [i for i in labelencoder.classes_])
+  #print(cm)
 
-plt.figure(figsize = (12,10))
-ax = sns.heatmap(cm, linecolor = 'white', cmap = 'Greys_r', linewidth=1, annot = True, fmt = '')
-bottom, top = ax.get_ylim()
-ax.set_ylim(bottom + 0.5, top - 0.5)
-plt.title('Matriz de confusão', size = 20)
-plt.xlabel('Classes previstas', size = 14)
-plt.ylabel('Classes reais', size = 14)
-plt.show()
+  plt.figure(figsize = (12,10))
+  ax = sns.heatmap(cm, linecolor = 'white', cmap = 'Greys_r', linewidth=1, annot = True, fmt = '')
+  bottom, top = ax.get_ylim()
+  ax.set_ylim(bottom + 0.5, top - 0.5)
+  plt.title('Matriz de confusão', size = 20)
+  plt.xlabel('Classes previstas', size = 14)
+  plt.ylabel('Classes reais', size = 14)
+  plt.show()
 
-print(classification_report(actual, predictions))
+  print(classification_report(actual, predictions))
 
 def get_info(data, sample_rate):
   print('Canais: ', len(data.shape))
@@ -255,13 +347,13 @@ def get_info(data, sample_rate):
   print('Taxa de amostragem: ', sample_rate)
   print('Duração: ', len(data) / sample_rate)
 
-def predict_sound(arquivo_audio, info = False, plot_waveform = False, plot_spectrogram = False):
+def predict_sound(arquivo_audio,info = False, plot_waveform = False, plot_spectrogram = False):
   audio, sample_rate = librosa.load(arquivo_audio, sr = None, res_type = 'kaiser_fast')
   mfccs_features = librosa.feature.mfcc(y = audio, sr = sample_rate, n_mfcc=40)
   mfccs_scaled_features = np.mean(mfccs_features.T, axis = 0)
   mfccs_scaled_features = mfccs_scaled_features.reshape(1,-1)
   mfccs_scaled_features = mfccs_scaled_features[:,:,np.newaxis]
-
+  
   prediction = model.predict(mfccs_scaled_features)
   prediction = prediction.argmax(axis=1)
   prediction = prediction.astype(int).flatten()
@@ -271,8 +363,8 @@ def predict_sound(arquivo_audio, info = False, plot_waveform = False, plot_spect
 
   if info:
     get_info(audio, sample_rate)
-    
-  """
+  
+  """  
   if plot_waveform:
     plt.figure(figsize=(14,5))
     plt.title('Tipo de som: ' + str(prediction[0].upper()), size = 16)
@@ -291,7 +383,28 @@ def predict_sound(arquivo_audio, info = False, plot_waveform = False, plot_spect
     plt.show()
   """
 
-audio, sample_rate = librosa.load(r'audios\Folder2\655170-5-0-3.wav', sr = None, res_type = 'kaiser_fast')
-predict_sound(r'audios\Folder2\655170-5-0-3.wav', info = True, plot_waveform=True, plot_spectrogram=True)
+def teste(arquivo_audio):
+  audio, sample_rate = librosa.load(arquivo_audio, sr = None, res_type = 'kaiser_fast')
+  predict_sound(arquivo_audio, info = True, plot_waveform=True, plot_spectrogram=True)
 
+#treinamento(100,35)
+model = get_model()
+model.load_weights("saved_models/barking_classification.h5")
+model.summary
+
+teste(r'audios\Folder2\655907-2-0-5.wav')
+teste(r'audios\Folder2\655147-3-0-0.wav')
+teste(r'audios\Folder2\655166-4-0-3.wav')
+teste(r'audios2\Train\0-Choro\654246-0-0-4.wav')
+teste(r'audios2\Test\5-Subir_cama_sofa\655195-5-0-0.wav')
+teste(r'audios\Folder1\655164-6-0-1.wav')
   
+"""
+0 = Choro
+1 = Abrir_a_porta
+2 = Chegada_do_dono
+3 = Comer
+4 = Ir_para_o_quarto
+5 = Subir_cama_sofa
+6 = Pegar_no_colo
+"""

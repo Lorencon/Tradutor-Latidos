@@ -1,0 +1,3 @@
+#!C:\Users\Ramom Landim\Desktop\TG\Tradutor-Latidos\venv-env\Scripts\python.exe
+from numba.pycc import main
+main()
