@@ -108,14 +108,14 @@ n_files = df.shape[0]
 rnd = np.random.randint(0,n_files)
 fname = df['path'][rnd]
 #print(fname)
-
+"""
 data,sample_rate = librosa.load(fname,sr=None) #22050 Hz
 print('Canais: ',len(data.shape))
 print('Número total de amostras: ', data.shape[0])
 print('Arquivos: ', fname)
 print('Taxa de amostragem: ',sample_rate)
 print('Duração: ',len(data)/sample_rate)
-
+"""
 info = df.iloc[rnd].values
 #print(info)
 title_txt = 'Som: ' + info [1]
@@ -390,17 +390,12 @@ def teste(arquivo_audio):
 #treinamento(100,35)
 model = get_model()
 model.load_weights("saved_models/barking_classification.h5")
-model.summary
+#model.summary
 
-""" 
 teste(r'audios\Folder2\655907-2-0-5.wav')
 teste(r'audios\Folder2\655147-3-0-0.wav')
 teste(r'audios\Folder2\655166-4-0-3.wav')
-teste(r'audios2\Train\0-Choro\654246-0-0-4.wav')
-teste(r'audios2\Test\5-Subir_cama_sofa\655195-5-0-0.wav')
 teste(r'audios\Folder1\655164-6-0-1.wav')
- """
-teste(r'audios2\Test\1-Abrir_a_porta\654157-1-0-4.wav')
   
 """
 0 = Choro
