@@ -83,18 +83,39 @@ for root, dirs, files in tqdm(os.walk('audios/')):
 
 sound_list = [ 'Choro','Abrir_a_porta', 'Chegada_do_dono', 'Comer', 'Ir_para_o_quarto','Subir_cama_sofa', 'Pegar_no_colo']
 sound_dict = {em[0]:em[1] for em in enumerate(sound_list)}
+#print(sound_dict)
 
 df = pd.DataFrame([fsID, classID, occurID, sliceID, full_path]).T
+#print(df)
+
 df.columns = ['fsID', 'classID', 'occurID', 'sliceID', 'path']
 #print(df)
 
 df['classID'] = df['classID'].map(sound_dict)
 df['path'] = df['path'].apply(lambda x: x[0] + '/' + x[1])
+#print(df)
+
+#print(df.describe())
+#print(df['classID'].value_counts())
+
+#plt.figure(figsize=(18,7))
+#sns.countplot(x=df['classID'])
+#plt.show()
+
+#print(df.shape)
 
 n_files = df.shape[0]
 rnd = np.random.randint(0,n_files)
 fname = df['path'][rnd]
-
+#print(fname)
+"""
+data,sample_rate = librosa.load(fname,sr=None) #22050 Hz
+print('Canais: ',len(data.shape))
+print('Número total de amostras: ', data.shape[0])
+print('Arquivos: ', fname)
+print('Taxa de amostragem: ',sample_rate)
+print('Duração: ',len(data)/sample_rate)
+"""
 info = df.iloc[rnd].values
 #print(info)
 title_txt = 'Som: ' + info [1]
@@ -114,6 +135,89 @@ for path in tqdm(df['path'].values):
 extracted_features_df = pd.DataFrame(extracted_features, columns = ['feature'])
 X = np.array(extracted_features_df['feature'].tolist())
 y = np.array(df['classID'].tolist())
+
+extracted_features_df = pd.DataFrame(extracted_features, columns = ['feature'])
+feature = np.array(extracted_features_df['feature'].tolist())
+classID = np.array(df['classID'].tolist())
+
+def train_test(feature,classID,tax):
+  feature_inicio=[]
+  classID_inicio=[]
+  for i in range(len(feature)):
+    linha=[]
+    for j in range(len(feature[i])):
+      linha.append(feature[i][j])
+    feature_inicio.append(linha)
+    classID_inicio.append(classID[i])
+  #print(feature_inicio)
+  #print(classID_inicio)
+  feature_train=[]
+  classID_train=[]
+  feature_test=[]
+  classID_test=[]
+  feature_val=[]
+  classID_val=[]
+  qtyClass=[0,0,0,0,0,0,0]
+  for i in range(len(classID)):
+    qtyClass[sound_list.index(classID[i])]+=1
+  #print(qtyClass)
+  for i in range(len(qtyClass)):
+    n=int(qtyClass[i]*tax)
+    if n<2:
+      n=2
+    k=0
+    #Alimentando Teste
+    for j in range(len(classID)):
+      if classID_inicio[j]==sound_list[i]:
+        feature_test.append(feature_inicio[j])
+        feature_inicio.remove(feature_inicio[j])
+        classID_test.append(classID_inicio[j])
+        classID_inicio.remove(classID_inicio[j])
+        k+=1
+        if k==int(n/2):
+          break
+    k=0
+    #Alimentando Validação
+    for j in range(len(classID)):
+      if classID_inicio[j]==sound_list[i]:
+        feature_val.append(feature_inicio[j])
+        feature_inicio.remove(feature_inicio[j])
+        classID_val.append(classID_inicio[j])
+        classID_inicio.remove(classID_inicio[j])
+        k+=1
+        if k==int(n/2):
+          break
+    k=0
+  for j in range (len(classID_inicio)):
+    feature_train.append(feature_inicio[j])
+    classID_train.append(classID_inicio[j])
+  
+  feature_train=np.array(feature_train)
+  classID_train=np.array(classID_train)
+  feature_test=np.array(feature_test)
+  classID_test=np.array(classID_test)
+  feature_val=np.array(feature_val)
+  classID_val=np.array(classID_val)
+
+  labelencoder = LabelEncoder()
+  classID_train = to_categorical(labelencoder.fit_transform(classID_train))
+  classID_test = to_categorical(labelencoder.fit_transform(classID_test))
+  classID_val = to_categorical(labelencoder.fit_transform(classID_val))
+ 
+  return  feature_train,classID_train,feature_test,classID_test,feature_val,classID_val,labelencoder
+
+"""
+X_train, y_train, X_test, y_test, X_val, y_val,labelencoder = train_test(feature,classID,0.2)
+X_train = np.array(X_train)
+y_train = np.array(y_train)
+X_test = np.array(X_test)
+y_test = np.array(y_test)
+X_val = np.array(X_val)
+
+X_train = X_train[:,:,np.newaxis]
+X_test = X_test[:,:,np.newaxis]
+X_val = X_val[:,:,np.newaxis]
+"""
 
 labelencoder = LabelEncoder()
 y = to_categorical(labelencoder.fit_transform(y))
@@ -286,6 +390,7 @@ def teste(arquivo_audio):
 #treinamento(100,35)
 model = get_model()
 model.load_weights("saved_models/barking_classification.h5")
+#model.summary
 
 teste(r'audios\Folder2\655907-2-0-5.wav')
 teste(r'audios\Folder2\655147-3-0-0.wav')
