@@ -118,7 +118,7 @@ y = np.array(df['classID'].tolist())
 labelencoder = LabelEncoder()
 y = to_categorical(labelencoder.fit_transform(y))
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.2, random_state = 1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.6, random_state = 1)
 X_test, X_val, y_test, y_val = train_test_split(X_test, y_test, test_size = 0.5, random_state=1)
 
 X_train = X_train[:,:,np.newaxis]
@@ -128,11 +128,11 @@ X_val = X_val[:,:,np.newaxis]
 def get_model():
   model = Sequential()
 
-  model.add(Conv1D(64, kernel_size=(10), activation='relu', input_shape=(X_train.shape[1], 1)))
+  model.add(Conv1D(64, kernel_size=(7), activation='relu', input_shape=(X_train.shape[1], 1)))
   model.add(Dropout(0.4))
   model.add(MaxPooling1D(pool_size=(4)))
 
-  model.add(Conv1D(128, 10, padding='same',))
+  model.add(Conv1D(128, 7, padding='same',))
   model.add(Activation('relu'))
   model.add(Dropout(0.4))
   model.add(MaxPooling1D(pool_size=(4)))
@@ -283,7 +283,7 @@ def teste(arquivo_audio):
   audio, sample_rate = librosa.load(arquivo_audio, sr = None, res_type = 'kaiser_fast')
   predict_sound(arquivo_audio, info = True, plot_waveform=True, plot_spectrogram=True)
 
-#treinamento(100,35)
+treinamento(100,35)
 model = get_model()
 model.load_weights("saved_models/barking_classification.h5")
 
